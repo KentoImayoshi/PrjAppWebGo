@@ -10,6 +10,6 @@ import (
 
 func main() {
 	_ = godotenv.Load()
-	routes.Init()
+	routes.CarregaRotas()
 	log.Fatal(http.ListenAndServe(":8000", nil))
 }

@@ -2,38 +2,63 @@ package controllers
 
 import (
 	"html/template"
+	"log"
 	"net/http"
+	"strconv"
 
-	"github.com/kentoimayoshi/db"
 	"github.com/kentoimayoshi/models"
 )
 
-var tmpl = template.Must(template.ParseGlob("templates/*.html"))
+var temp = template.Must(template.ParseGlob("templates/*.html"))
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	conn, err := db.Connect()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer conn.Close()
+	todos := models.BuscaTodosOsProdutos()
+	_ = temp.ExecuteTemplate(w, "Index", todos)
+}
 
-	rows, err := conn.Query("select id, nome, descricao, preco, quantidade from produtos")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
+func New(w http.ResponseWriter, r *http.Request) {
+	_ = temp.ExecuteTemplate(w, "New", nil)
+}
 
-	var produtos []models.Produto
-	for rows.Next() {
-		var p models.Produto
-		if err = rows.Scan(&p.Id, &p.Nome, &p.Descricao, &p.Preco, &p.Quantidade); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+func Insert(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		nome := r.FormValue("nome")
+		descricao := r.FormValue("descricao")
+		preco, err := strconv.ParseFloat(r.FormValue("preco"), 64)
+		if err != nil {
+			log.Println("Erro preco:", err)
 		}
-		produtos = append(produtos, p)
-	}
+		quantidade, err := strconv.Atoi(r.FormValue("quantidade"))
+		if err != nil {
+			log.Println("Erro quantidade:", err)
+		}
 
-	_ = tmpl.ExecuteTemplate(w, "Index", produtos)
+		models.CriaNovoProduto(nome, descricao, preco, quantidade)
+	}
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
+}
+
+func Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	models.DeletaProduto(id)
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
+}
+
+func Edit(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	produto := models.EditaProduto(id)
+	_ = temp.ExecuteTemplate(w, "Edit", produto)
+}
+
+func Update(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		id := r.FormValue("id")
+		nome := r.FormValue("nome")
+		descricao := r.FormValue("descricao")
+		preco := r.FormValue("preco")
+		quantidade := r.FormValue("quantidade")
+
+		models.AtualizaProduto(id, nome, descricao, preco, quantidade)
+	}
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
 }
